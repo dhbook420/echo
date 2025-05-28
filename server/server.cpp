@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <thread>
+#include <cstring>
 
 
 using namespace std;
@@ -86,7 +87,6 @@ int main(int argc, char *argv[]) {
     memset(&server, 0, sizeof(server));
     server.sin_family = AF_INET;
     server.sin_port = htons(port);
-    server.sin_addr.s_addr = inet_addr(ip);
 
     if (connect(sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
         perror("connect");
