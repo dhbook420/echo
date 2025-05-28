@@ -106,6 +106,7 @@ int main(int argc, char *argv[]) {
 		perror("listen");
 		return 1;
 	}
+	printf("listening on port %d\n", port);
 
 	while (true) {
 		struct sockaddr_in addr;
