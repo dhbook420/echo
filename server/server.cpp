@@ -55,9 +55,9 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    if (argc == 4)
+    if (argc == 3)
     {
-    	if (!memcmp (argv[3], "-e", 2))
+    	if (!strcmp(argv[2], "-e"))
 	    {
     		usage();
     		return 1;
@@ -65,9 +65,9 @@ int main(int argc, char *argv[]) {
 	    echo = true;
 
     }
-	else if (argc == 5)
+	else if (argc == 4)
 	{
-		if (!memcmp (argv[4], "-b", 2))
+		if (!strcmp(argv[3], "-b"))
 		{
 			usage();
 			return 1;
@@ -83,31 +83,42 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    struct sockaddr_in server;
-    memset(&server, 0, sizeof(server));
-    server.sin_family = AF_INET;
-    server.sin_port = htons(port);
+	int optval = 1;
+	int res_sock = ::setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+	if (res_sock == -1) {
+		perror("setsockopt");
+		return 1;
+	}
 
-    if (connect(sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
-        perror("connect");
-        close(sock);
-        return 1;
-    }
+	struct sockaddr_in addr;
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	addr.sin_port = htons(port);
 
-    thread th(recvThread, sock);
-    th.detach();
+	ssize_t res_bind = ::bind(sock, (struct sockaddr *)&addr, sizeof(addr));
+	if (res_bind == -1) {
+		perror("bind");
+		return 1;
+	}
 
-    while (true) {
-        std::string s;
-        std::getline(std::cin, s);
-        s += "\r\n";
-        ssize_t res = ::send(sock, s.data(), s.size(), 0);
-        if (res == 0 || res == -1) {
-            fprintf(stderr, "send return %zd", res);
-            perror("send");
-            break;
-        }
-    }
-    ::close(sock);
-    return 0;
+	int res_lis = listen(sock, 5);
+	if (res_lis == -1) {
+		perror("listen");
+		return 1;
+	}
+
+	while (true) {
+		struct sockaddr_in addr;
+		socklen_t len = sizeof(addr);
+		int newsd = ::accept(sock, (struct sockaddr *)&addr, &len);
+		if (newsd == -1) {
+			perror("accept");
+			break;
+		}
+		thread t(recvThread, newsd);
+		t.detach();
+	}
+	::close(sock);
+
+
 }
