@@ -50,7 +50,7 @@ void recvThread(int sd) {
 
 
 int main(int argc, char *argv[]) {
-    if (argc < 3  || argc > 5) {
+    if (argc < 2  || argc > 4) {
       	usage();
         return 1;
     }
