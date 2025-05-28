@@ -22,7 +22,6 @@ void recvThread(int sd) {
     while (true) {
         ssize_t res = ::recv(sd, buf, BUFSIZE - 1, 0);
         if (res == 0 || res == -1) {
-            fprintf(stderr, "recv return %zd", res);
             perror("recv");
             break;
         }

@@ -4,8 +4,11 @@
 #include <sys/socket.h>
 
 #include <iostream>
+#include <algorithm>
 #include <thread>
 #include <cstring>
+#include <vector>
+#include <mutex>
 
 
 using namespace std;
@@ -16,6 +19,8 @@ void usage() {
 
 bool echo = false;
 bool broadcast = false;
+mutex mtx;
+vector<int> clients;
 
 void recvThread(int sd) {
 	printf("connected\n");
@@ -26,24 +31,38 @@ void recvThread(int sd) {
 		ssize_t res = ::recv(sd, buf, BUFSIZE - 1, 0);
 		if (res == 0 || res == -1) {
 			fprintf(stderr, "recv return %zd", res);
-			perror("recv");
 			break;
 		}
 		buf[res] = '\0';
 		printf("%s", buf);
 		fflush(stdout);
-		if (echo) {
+		if (echo && !broadcast) {
 			res = ::send(sd, buf, res, 0);
 			if (res == 0 || res == -1) {
-				fprintf(stderr, "send return %zd", res);
+				fprintf(stderr, "send return %zd\n", res);
 				perror("send");
 				break;
 			}
 		}
+        else if (broadcast) {
+        	lock_guard<mutex> lock(mtx);
+        	for (int client_fd : clients) {
+        		::send(client_fd, buf, res, 0);
+
+        	}
+        }
 	}
 	printf("disconnected\n");
 	fflush(stdout);
 	::close(sd);
+
+	{
+		lock_guard<mutex> lock(mtx);
+		clients.erase(
+			remove(clients.begin(), clients.end(), sd),
+			clients.end()
+		);
+	}
 }
 
 
@@ -57,7 +76,7 @@ int main(int argc, char *argv[]) {
 
     if (argc == 3)
     {
-    	if (!strcmp(argv[2], "-e"))
+    	if (strcmp(argv[2], "-e"))
 	    {
     		usage();
     		return 1;
@@ -67,7 +86,7 @@ int main(int argc, char *argv[]) {
     }
 	else if (argc == 4)
 	{
-		if (!strcmp(argv[3], "-b"))
+		if (strcmp(argv[3], "-b"))
 		{
 			usage();
 			return 1;
@@ -116,10 +135,13 @@ int main(int argc, char *argv[]) {
 			perror("accept");
 			break;
 		}
+
+        {
+        	lock_guard<mutex> lock(mtx);
+            clients.push_back(newsd);
+        }
 		thread t(recvThread, newsd);
 		t.detach();
 	}
 	::close(sock);
-
-
 }
